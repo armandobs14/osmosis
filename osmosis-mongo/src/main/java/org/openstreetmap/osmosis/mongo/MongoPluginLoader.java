@@ -13,7 +13,7 @@ public class MongoPluginLoader implements PluginLoader {
     public Map<String, TaskManagerFactory> loadTaskFactories() {
         Map<String,TaskManagerFactory> map = new HashMap();
         MongoWriterFactory mongoWriterFactory = new MongoWriterFactory();
-        map.put("wm",mongoWriterFactory);
+        map.put("write-mongo",mongoWriterFactory);
         return  map;
     }
 }

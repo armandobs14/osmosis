@@ -1,16 +1,18 @@
 package org.openstreetmap.osmosis.mongo;
 
-import com.mongodb.Mongo;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
+import com.mongodb.*;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.geojson.*;
+import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.openstreetmap.osmosis.core.container.v0_6.EntityContainer;
 import org.openstreetmap.osmosis.core.domain.v0_6.*;
 import org.openstreetmap.osmosis.core.task.v0_6.Sink;
 import org.openstreetmap.osmosis.core.util.LazyHashMap;
 
-import java.util.Collection;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 
 /**
@@ -18,53 +20,52 @@ import java.util.logging.Logger;
  */
 public class MongoWriter implements Sink {
     Logger logger = Logger.getLogger(MongoWriter.class.getName());
-    private MongoClientURI client;
+    private String host;
+    private MongoClient client;
+    private MongoDatabase db;
 
 
-    public MongoWriter(Map<String,String> params){
-        client = new MongoClientURI(params.get("host"));
-
-        System.out.println(params);
-        System.exit(0);
+    public MongoWriter(MongoClient client){
+        db = client.getDatabase("osm");
+        db.getCollection("node").createIndex(new BasicDBObject("loc", "2dsphere"));
     }
 
 
     public void process(EntityContainer entityContainer) {
-        Entity entity = entityContainer.getEntity();
+
+       Entity entity = entityContainer.getEntity();
         EntityType type = entity.getType();
+        MongoCollection<Document> nodeCollection = db.getCollection("node");
+
 
         if(entity.getType().equals(EntityType.Node)){
             Node node = (Node) entity;
 
             TagCollection tagCollection = (TagCollection) node.getTags();
-            Map<String, String> map = tagCollection.buildMap();
-            map.put("id",String.valueOf(entity.getId()));
-            map.put("type",String.valueOf(entity.getType()));
-            map.put("lat",String.valueOf(node.getLatitude()));
-            map.put("lon",String.valueOf(node.getLongitude()));
+            Map<String, Object> map = new HashMap<>();
+//            Map<String,Object> point = new HashMap<>();
+            tagCollection.buildMap().forEach((k,v) ->{
+                map.put(k.replace(".","_"),v);
+            });
+
+
+            Point point = new Point(new Position(node.getLongitude(),node.getLatitude()));
+            map.put("loc",point);
 
             //metadata
-            map.put("changesetId",String.valueOf(entity.getChangesetId()));
-            map.put("user.id",String.valueOf(entity.getUser().getId()));
-            map.put("user.name",String.valueOf(entity.getUser().getName()));
-            map.put("hashCode",String.valueOf(entity.hashCode()));
-            map.put("version",String.valueOf(entity.getVersion()));
-            map.put("timestamps",String.valueOf(entity.getTimestamp().getTime()));
+            map.put("_id",entity.getId());
+            map.put("changesetId",entity.getChangesetId());
+            map.put("user_id",entity.getUser().getId());
+            map.put("user_name",entity.getUser().getName());
+            map.put("hashCode",entity.hashCode());
+            map.put("version",entity.getVersion());
+            map.put("timestamps",entity.getTimestamp().getTime());
+
 
             if(map.containsKey("name")){
-                System.out.println(map);
+                Document doc = new Document(map);
+                nodeCollection.insertOne(doc);
             }
-
-
-            // Reading tags
-            /*
-            for (Tag tag : tags) {
-                System.out.println(tag.getKey()+" - "+tag.getValue());
-                System.out.println(tag);
-            }
-            */
-            
-
 
         }else{
             System.out.println("--------");
