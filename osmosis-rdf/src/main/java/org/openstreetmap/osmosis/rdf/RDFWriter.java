@@ -1,17 +1,18 @@
 package org.openstreetmap.osmosis.rdf;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.net.URI;
 import org.openstreetmap.osmosis.core.container.v0_6.EntityContainer;
 import org.openstreetmap.osmosis.core.domain.v0_6.*;
 import org.openstreetmap.osmosis.core.task.v0_6.Sink;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.logging.Logger;
 import java.util.List;
+import java.util.logging.Level;
 import org.bson.Document;
 import org.apache.commons.lang3.text.WordUtils;
 
@@ -26,6 +27,9 @@ public class RDFWriter implements Sink {
     private Logger logger = Logger.getLogger(RDFWriter.class.getName());
     private Document tags = null;
 
+    private File file = null;
+    private final FileWriter fileWriter;
+
     public RDFWriter() throws FileNotFoundException, IOException {
         FileReader reader = new FileReader("/home/williams/projetos/osmosis/osmosis-rdf/conf/tags.json");
         BufferedReader buffer = new BufferedReader(reader);
@@ -38,7 +42,9 @@ public class RDFWriter implements Sink {
         reader.close();
 
         tags = Document.parse(text_tags.toString());
-        System.out.println("oioioio");
+
+        file = new File("/home/williams/projetos/dados/osm.n3");
+        fileWriter = new FileWriter(file, true);
     }
 
     @Override
@@ -49,19 +55,21 @@ public class RDFWriter implements Sink {
         if (entity.getType().equals(EntityType.Node)) {
             Node node = (Node) entity;
             TagCollection tagCollection = (TagCollection) node.getTags();
-            Map<String, Object> map = new HashMap<>();
-            boolean status = false;
+
             String key = null;
             String value = null;
             Map<String, String> buildMap = tagCollection.buildMap();
             for (Map.Entry<String, String> entry : buildMap.entrySet()) {
                 String k = entry.getKey();
-                String v = entry.getValue();
-                List<String> list = tags.get(k, List.class);
-                if (list.contains(v)) {
-                    status = true;
-                    key = k;
-                    value = v;
+                if (tags.containsKey(k)) {
+                    String v = entry.getValue();
+                    List<String> list = tags.get(k, List.class);
+                    if (list.contains(v)) {
+                        key = k;
+                        value = v;
+                    }
+                } else {
+                    System.out.println("k: " + k);
                 }
             }
             if (key != null) {
@@ -74,22 +82,24 @@ public class RDFWriter implements Sink {
                     value_URI.append(WordUtils.capitalizeFully(value_split[i]));
                 }
 
-                URI resource = URI.create(value_URI.toString() + "/" + entity.getId());
-                map.put(OSM + "hasOSMID", entity.getId());
-                map.put(RDF + "type", URI.create(value_URI.toString()));
+                String resource = "<" + value_URI.toString() + "/" + entity.getId() + ">";
+                try {
+                    fileWriter.append(resource).append(" <" + OSM + "hasOSMID> ").append(String.valueOf(entity.getId())).append(".\n");
+                    fileWriter.append(resource).append(" <" + RDF + "type> <").append(value_URI.toString() + ">").append(".\n");
 
-                for (Map.Entry<String, String> entry : buildMap.entrySet()) {
-                    String k = entry.getKey();
-                    String v = entry.getValue();
-                    switch (k) {
-                        case "name":
-                            map.put(OSM + "hasName", v);
-                            break;
-                        default:
-                            map.put(k.replace(".", "_"), v);
+                    for (Map.Entry<String, String> entry : buildMap.entrySet()) {
+                        String k = entry.getKey();
+                        String v = entry.getValue();
+                        switch (k) {
+                            case "name":
+                                fileWriter.append(resource).append(" <" + OSM + "hasName> \"").append(v + "\"").append(".\n");
+                                break;
+                            default:
+                        }
                     }
+                } catch (IOException ex) {
+                    Logger.getLogger(RDFWriter.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
             }
 
             //Point point = new Point(new Position(node.getLongitude(),node.getLatitude()));
