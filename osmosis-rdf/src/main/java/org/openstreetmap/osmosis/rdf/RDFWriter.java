@@ -15,8 +15,6 @@ import java.util.List;
 import java.util.logging.Level;
 import org.bson.Document;
 import org.apache.commons.lang3.text.WordUtils;
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
 
 /**
  * Created by Williams on 27/01/17.
@@ -46,8 +44,20 @@ public class RDFWriter implements Sink {
 
         tags = Document.parse(text_tags.toString());
 
-        file = new File("/home/williams/projetos/dados/osm.nt");
+        file = new File("/home/williams/projetos/dados/osm.ttl");
         fileWriter = new FileWriter(file, true);
+    }
+
+    @Override
+    public void initialize(Map<String, Object> metaData) {
+        logger.fine("initialize() with metadata: " + metaData.toString());
+        try {
+            fileWriter.append("@prefix rdf: <").append(RDF).append(">.\n");
+            fileWriter.append("@prefix osm: <").append(OSM).append(">.\n");
+            fileWriter.append("@prefix loc: <").append(LOC).append(">.\n");
+        } catch (IOException ex) {
+            Logger.getLogger(RDFWriter.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     @Override
@@ -55,81 +65,79 @@ public class RDFWriter implements Sink {
 
         Entity entity = entityContainer.getEntity();
 
-        if (entity.getType().equals(EntityType.Node)) {
-            Node node = (Node) entity;
-            TagCollection tagCollection = (TagCollection) node.getTags();
-
-            String key = null;
-            String value = null;
-            Map<String, String> buildMap = tagCollection.buildMap();
-            for (Map.Entry<String, String> entry : buildMap.entrySet()) {
-                String k = entry.getKey();
-                if (tags.containsKey(k)) {
-                    String v = entry.getValue();
-                    List<String> list = tags.get(k, List.class);
-                    if (list.contains(v)) {
-                        key = k;
-                        value = v;
-                    }
-                }
-            }
-            if (key != null) {
-                buildMap.remove(key);
-                try {
-                    String[] value_split = value.split("[_-]");
-                    StringBuilder value_URI = new StringBuilder();
-                    value_URI.append(OSM);
-                    for (int i = 0; i < value_split.length; i++) {
-                        value_URI.append(WordUtils.capitalizeFully(value_split[i]));
-                    }
-
-                    String resource = "<" + value_URI.toString() + "/" + entity.getId() + ">";
-                    String adr_URI = "<" + OSM + "address/" + entity.getId() + ">";
-
-                    fileWriter.append(resource)
-                            .append(" <" + RDF + "type> ")
-                            .append(" <" + value_URI.toString() + "> ")
-                            .append(".\n");
-                    fileWriter.append(resource)
-                            .append(" <" + OSM + "hasOSMID> ")
-                            .append(" \"" + String.valueOf(entity.getId()) + "\"^^xsd:int ")
-                            .append(".\n");
-                    fileWriter.append(resource)
-                            .append(" <" + LOC + "hasAddress> ")
-                            .append(adr_URI)
-                            .append(".\n");
-                    for (Map.Entry<String, String> entry : buildMap.entrySet()) {
-                        String k = entry.getKey();
+        switch (entity.getType()) {
+            case Node:
+                Node node = (Node) entity;
+                TagCollection tagCollection = (TagCollection) node.getTags();
+                String key = null;
+                String value = null;
+                Map<String, String> buildMap = tagCollection.buildMap();
+                for (Map.Entry<String, String> entry : buildMap.entrySet()) {
+                    String k = entry.getKey();
+                    if (tags.containsKey(k)) {
                         String v = entry.getValue();
-                        switch (k) {
-                            case "name":
-                                fileWriter.append(resource)
-                                        .append(" <" + OSM + "hasName> ")
-                                        .append(" \"" + v + "\"^^xsd:string ")
-                                        .append(".\n");
-                                break;
-                            default:
+                        List<String> list = tags.get(k, List.class);
+                        if (list.contains(v)) {
+                            key = k;
+                            value = v;
                         }
                     }
-                    fileWriter.append(adr_URI)
-                            .append(" <" + RDF + "type> ")
-                            .append(" <" + LOC + "Address> ")
-                            .append(".\n");
-                    fileWriter.append(adr_URI)
-                            .append(" <" + LOC + "hasLatitude> ")
-                            .append(" \"" + node.getLatitude() + "\"^^xsd:string ")
-                            .append(".\n");
-                    fileWriter.append(adr_URI)
-                            .append(" <" + LOC + "hasLongitude> ")
-                            .append(" \"" + node.getLongitude() + "\"^^xsd:string ")
-                            .append(".\n");
-                } catch (IOException ex) {
-
                 }
-            }
-        } else {
-            System.out.println("--------");            
-            System.out.println(entity.getType().name());
+                if (key != null) {
+                    buildMap.remove(key);
+                    try {
+                        String[] value_split = value.split("[_-]");
+                        StringBuilder value_URI = new StringBuilder();
+                        value_URI.append(OSM);
+                        for (int i = 0; i < value_split.length; i++) {
+                            value_URI.append(WordUtils.capitalizeFully(value_split[i]));
+                        }
+
+                        String resource = "<" + value_URI.toString() + "/" + entity.getId() + ">";
+
+                        fileWriter.append(resource)
+                                .append(" rdf:type ")
+                                .append(" <" + value_URI.toString() + "> ")
+                                .append(";\n");
+                        for (Map.Entry<String, String> entry : buildMap.entrySet()) {
+                            String k = entry.getKey();
+                            String v = entry.getValue();
+                            switch (k) {
+                                case "name":
+                                    fileWriter.append(" osm:hasName ")
+                                            .append(" \"" + v + "\"^^xsd:string ")
+                                            .append(";\n");
+                                    break;
+                                default:
+                            }
+                        }
+                        fileWriter.append(" osm:hasOSMID ")
+                                .append(" \"" + String.valueOf(entity.getId()) + "\"^^xsd:int ")
+                                .append(";\n");
+
+                        // address resource
+                        String adr_URI = "<" + OSM + "address/" + entity.getId() + ">";
+                        fileWriter.append(" loc:hasAddress ")
+                                .append(adr_URI)
+                                .append(".\n");
+
+                        fileWriter.append(adr_URI)
+                                .append(" rdf:type ")
+                                .append(" loc:Address ")
+                                .append(";\n");
+                        fileWriter.append(" loc:hasLatitude ")
+                                .append(" \"" + node.getLatitude() + "\"^^xsd:string ")
+                                .append(";\n");
+                        fileWriter.append(" loc:hasLongitude ")
+                                .append(" \"" + node.getLongitude() + "\"^^xsd:string ")
+                                .append(".\n");
+                    } catch (IOException ex) {
+
+                    }
+                }
+                break;
+            default:
+                break;
         }
     }
 
@@ -138,16 +146,12 @@ public class RDFWriter implements Sink {
     }
 
     @Override
-    public void initialize(Map<String, Object> metaData) {
-        logger.fine("initialize() with metadata: " + metaData.toString());
-    }
-
-    @Override
     public void close() {
         try {
             fileWriter.close();
         } catch (IOException ex) {
-            Logger.getLogger(RDFWriter.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(RDFWriter.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
     }
 }
