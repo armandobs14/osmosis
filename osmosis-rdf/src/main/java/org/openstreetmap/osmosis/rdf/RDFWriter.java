@@ -1,5 +1,9 @@
 package org.openstreetmap.osmosis.rdf;
 
+import com.joint.KAO;
+import com.joint.MongoManager;
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoDatabase;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -30,6 +34,7 @@ public class RDFWriter implements Sink {
 
     private File file = null;
     private final FileWriter fileWriter;
+    private MongoManager mongo_mng;
 
     public RDFWriter() throws FileNotFoundException, IOException {
         FileReader reader = new FileReader("/home/williams/projetos/osmosis/osmosis-rdf/conf/tags.json");
@@ -46,6 +51,7 @@ public class RDFWriter implements Sink {
 
         file = new File("/home/williams/projetos/dados/osm.ttl");
         fileWriter = new FileWriter(file, true);
+        mongo_mng = new MongoManager();
     }
 
     @Override
@@ -72,19 +78,29 @@ public class RDFWriter implements Sink {
             String k = entry.getKey();
             if (tags.containsKey(k)) {
                 String v = entry.getValue();
-                List<String> list = tags.get(k, List.class);
-                if (list.contains(v)) {
-                    keys_values.put(k, v);
+                switch (v) {
+                    case "street":
+                    case "suburb":
+                    case "city":
+                    case "state":
+                    case "country":
+                        break;
+                    default:
+                        List<String> list = tags.get(k, List.class);
+                        if (list.contains(v)) {
+                            keys_values.put(k, v);
+                        }
                 }
+
             }
         }
         if (!keys_values.isEmpty()) {
             try {
                 String resource_URI = "<" + OSM + entity.getType().name().toLowerCase() + "/" + entity.getId() + ">";
-                fileWriter.append(resource_URI).append(" osm:hasSource osm:OpenStreetMap; ");
+                fileWriter.append(resource_URI).append(" osm:publisher osm:OpenStreetMap; ");
                 for (Map.Entry<String, String> entry : keys_values.entrySet()) {
                     buildMap.remove(entry.getKey());
-                    
+
                     String[] value_split = entry.getValue().split("[_-]");
 
                     StringBuilder type = new StringBuilder();
@@ -107,6 +123,12 @@ public class RDFWriter implements Sink {
                             fileWriter.append(" osm:hasName ")
                                     .append(" \"" + v + "\"^^xsd:string ")
                                     .append(";\n");
+                            break;
+                        case "publisher":
+                            fileWriter.append(" osm:publisher ")
+                                    .append(" osm:" + v.replaceAll(" ", ""))
+                                    .append(";\n");
+                            break;
                     }
                 }
                 // address resource
@@ -128,6 +150,19 @@ public class RDFWriter implements Sink {
                         fileWriter.append(" loc:hasLongitude ")
                                 .append(" \"" + node.getLongitude() + "\"^^xsd:string ")
                                 .append(".\n");
+                        Document city_dataset = mongo_mng.contains(node.getLongitude(), node.getLatitude());
+                        System.out.println(city_dataset);
+                        if (city_dataset != null) {
+                            
+                            fileWriter.append(adr_URI)
+                                    .append(" loc:isComposedOf ")
+                                    .append("<" + city_dataset.getString("@id") + "> ")
+                                    .append(".\n");
+                            fileWriter.append(resource_URI)
+                                    .append(" <dataset> ")
+                                    .append(city_dataset.getString("dataset"))
+                                    .append(".\n");
+                        }
                         break;
                     }
                     case Way: {
