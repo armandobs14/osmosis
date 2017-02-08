@@ -1,9 +1,6 @@
 package org.openstreetmap.osmosis.rdf;
 
-import com.joint.KAO;
 import com.joint.MongoManager;
-import com.mongodb.MongoClient;
-import com.mongodb.client.MongoDatabase;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -150,17 +147,16 @@ public class RDFWriter implements Sink {
                         fileWriter.append(" loc:hasLongitude ")
                                 .append(" \"" + node.getLongitude() + "\"^^xsd:string ")
                                 .append(".\n");
-                        Document city_dataset = mongo_mng.contains(node.getLongitude(), node.getLatitude());
-                        System.out.println(city_dataset);
-                        if (city_dataset != null) {
-                            
+                        Document n = mongo_mng.get(node.getId());
+                        System.out.println(n);
+                        if (n != null) {
                             fileWriter.append(adr_URI)
                                     .append(" loc:isComposedOf ")
-                                    .append("<" + city_dataset.getString("@id") + "> ")
+                                    .append("<" + n.getString("city") + "> ")
                                     .append(".\n");
                             fileWriter.append(resource_URI)
                                     .append(" <dataset> ")
-                                    .append(city_dataset.getString("dataset"))
+                                    .append(n.getString("dataset"))
                                     .append(".\n");
                         }
                         break;

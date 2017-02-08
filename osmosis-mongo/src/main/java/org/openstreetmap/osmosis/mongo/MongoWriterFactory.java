@@ -25,7 +25,7 @@ public class MongoWriterFactory extends TaskManagerFactory {
         Map<String, String> configArgs = taskConfig.getConfigArgs();
 
         try{
-            MongoClient client = new MongoClient("172.17.0.2");
+            MongoClient client = new MongoClient("localhost");
             sink= new MongoWriter(client);
 
         }catch (Exception e){

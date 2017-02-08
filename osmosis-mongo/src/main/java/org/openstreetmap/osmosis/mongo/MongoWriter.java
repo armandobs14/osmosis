@@ -26,7 +26,7 @@ public class MongoWriter implements Sink {
 
 
     public MongoWriter(MongoClient client){
-        db = client.getDatabase("osm");
+        db = client.getDatabase("main");
         db.getCollection("node").createIndex(new BasicDBObject("loc", "2dsphere"));
     }
 

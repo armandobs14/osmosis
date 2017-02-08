@@ -21,6 +21,10 @@ public class MongoManager {
         mongo_DB = mongo.getDatabase("main");
     }
 
+    public Document get(long id) {
+        return mongo_DB.getCollection("node").find(Filters.eq("_id", id)).projection(Projections.include("dataset", "city")).first();
+    }
+
     public Document contains(double lon, double lat) {
 
         Point point = new Point(new Position(lon, lat));
