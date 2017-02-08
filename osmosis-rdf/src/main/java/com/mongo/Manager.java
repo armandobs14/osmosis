@@ -1,4 +1,4 @@
-package com.joint;
+package com.mongo;
 
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoDatabase;
@@ -12,12 +12,12 @@ import org.bson.Document;
  *
  * @author williams
  */
-public class MongoManager {
+public class Manager {
 
     private MongoClient mongo = new MongoClient("localhost");
     private MongoDatabase mongo_DB;
 
-    public MongoManager() {
+    public Manager() {
         mongo_DB = mongo.getDatabase("main");
     }
 
@@ -30,10 +30,5 @@ public class MongoManager {
         Point point = new Point(new Position(lon, lat));
         System.out.println(Filters.geoIntersects("loc", point));
         return mongo_DB.getCollection("city").find(Filters.geoIntersects("loc", point)).projection(Projections.include("dataset", "@id")).first();
-    }
-
-    public static void main(String[] args) {
-        MongoManager mongoManager = new MongoManager();
-        System.out.println(mongoManager.contains(-46.6618907, -23.5281847));
     }
 }

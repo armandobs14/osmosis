@@ -1,6 +1,6 @@
 package org.openstreetmap.osmosis.rdf;
 
-import com.joint.MongoManager;
+import com.mongo.Manager;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -31,7 +31,7 @@ public class RDFWriter implements Sink {
 
     private File file = null;
     private final FileWriter fileWriter;
-    private MongoManager mongo_mng;
+    private Manager mongo_mng;
 
     public RDFWriter() throws FileNotFoundException, IOException {
         FileReader reader = new FileReader("/home/williams/projetos/osmosis/osmosis-rdf/conf/tags.json");
@@ -48,7 +48,7 @@ public class RDFWriter implements Sink {
 
         file = new File("/home/williams/projetos/dados/osm.ttl");
         fileWriter = new FileWriter(file, true);
-        mongo_mng = new MongoManager();
+        mongo_mng = new Manager();
     }
 
     @Override
