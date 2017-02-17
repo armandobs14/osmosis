@@ -21,6 +21,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bson.Document;
 import org.apache.commons.lang3.text.WordUtils;
+import org.bson.conversions.Bson;
 
 /**
  * Created by Williams on 27/01/17.
@@ -46,6 +47,9 @@ public class RDFWriter implements Sink {
 
     private File directory;
 
+    long total_points;
+    int actual = 0;
+
     public RDFWriter() throws FileNotFoundException, IOException {
         FileReader reader = new FileReader("/home/williams/projetos/osmosis/osmosis-rdf/conf/tags.json");
         BufferedReader buffer = new BufferedReader(reader);
@@ -62,6 +66,7 @@ public class RDFWriter implements Sink {
         files = new HashMap<>();
 
         collection = new MongoClient("172.17.0.1").getDatabase("main").getCollection("node");
+        total_points = collection.count();
     }
 
     @Override
@@ -87,7 +92,8 @@ public class RDFWriter implements Sink {
 
     @Override
     public void process(EntityContainer entityContainer) {
-
+        System.out.println(++actual + " de " + total_points);
+        
         Entity entity = entityContainer.getEntity();
 
         TagCollection tagCollection = (TagCollection) entity.getTags();
@@ -233,7 +239,7 @@ public class RDFWriter implements Sink {
             return files.get(dataset);
         } else {
             file_name.append(EXT_TURTLE);
-            
+
             File file = new File(directory, file_name.toString());
             FileWriter fw;
             if (!file.exists()) {
@@ -257,7 +263,9 @@ public class RDFWriter implements Sink {
         }
     }
 
+    private final Bson projection = Projections.include("dataset", "city");
+
     public Document getNode(long id) {
-        return collection.find(Filters.eq("_id", id)).projection(Projections.include("dataset", "city")).first();
+        return collection.find(Filters.eq("_id", id)).projection(projection).first();
     }
 }
