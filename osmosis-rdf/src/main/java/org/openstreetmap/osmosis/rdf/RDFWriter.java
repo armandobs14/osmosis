@@ -47,7 +47,7 @@ public class RDFWriter implements Sink {
 
     private File directory;
 
-    long total_points;
+    final long total_points;
     int actual = 0;
 
     public RDFWriter() throws FileNotFoundException, IOException {
