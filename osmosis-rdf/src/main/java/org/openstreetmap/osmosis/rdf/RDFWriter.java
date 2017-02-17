@@ -17,6 +17,8 @@ import org.openstreetmap.osmosis.core.domain.v0_6.*;
 import org.openstreetmap.osmosis.core.task.v0_6.Sink;
 import java.util.Map;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.bson.Document;
 import org.apache.commons.lang3.text.WordUtils;
 
@@ -32,7 +34,7 @@ public class RDFWriter implements Sink {
 
     private Document tags = null;
 
-    private Map<String, File> files = null;
+    private Map<String, FileWriter> files = null;
 
     private final MongoCollection<Document> collection;
 
@@ -99,9 +101,9 @@ public class RDFWriter implements Sink {
                 switch (v) {
                     case "street":
                     case "neighborhood":
-                    case "suburb":                    
-                    case "village":                    
-                    case "hamlet":                    
+                    case "suburb":
+                    case "village":
+                    case "hamlet":
                     case "town":
                     case "city":
                     case "state":
@@ -116,6 +118,7 @@ public class RDFWriter implements Sink {
             }
         }
         if (!keys_values.isEmpty()) {
+
             Document n = getNode(entity.getId());
             try {
 
@@ -123,8 +126,36 @@ public class RDFWriter implements Sink {
                 if (n != null && n.containsKey("dataset")) {
                     dataset = n.getString("dataset");
                 }
-                File f = solveFile(dataset);
-                FileWriter fw = new FileWriter(f, true);
+
+                FileWriter fw = solveFile(dataset);
+
+                // address resource
+                String adr_URI = "<" + OSM + "address/" + entity.getId() + ">";
+                switch (entity.getType()) {
+                    case Node: {
+                        Node node = (Node) entity;
+
+                        fw.append(adr_URI)
+                                .append(" rdf:type loc:Address;");
+                        fw.append("loc:hasLatitude ")
+                                .append("\"" + node.getLatitude() + "\"^^xsd:string;");
+                        fw.append("loc:hasLongitude ")
+                                .append("\"" + node.getLongitude() + "\"^^xsd:string");
+
+                        if (n.containsKey("city")) {
+                            fw.append("; loc:isComposedOf <").append(n.getString("city")).append(">");
+                        }
+                        fw.append(".\n");
+                        break;
+                    }
+                    case Way: {
+                        //Way way = (Way) entity;
+                    }
+                    case Relation: {
+                        //Relation rel = (Relation) entity;                        
+                        return;
+                    }
+                }
 
                 String resource_URI = "<" + OSM + entity.getType().name().toLowerCase() + "/" + entity.getId() + ">";
                 fw.append(resource_URI).append(" osm:publisher osm:OpenStreetMap; ");
@@ -159,54 +190,36 @@ public class RDFWriter implements Sink {
                             break;
                     }
                 }
-                // address resource
-                String adr_URI = "<" + OSM + "address/" + entity.getId() + ">";
+
                 fw.append("loc:hasAddress ")
                         .append(adr_URI)
                         .append(".\n");
-                switch (entity.getType()) {
-                    case Node: {
-                        Node node = (Node) entity;
-
-                        fw.append(adr_URI)
-                                .append(" rdf:type loc:Address;");
-                        fw.append("loc:hasLatitude ")
-                                .append("\"" + node.getLatitude() + "\"^^xsd:string;");
-                        fw.append("loc:hasLongitude ")
-                                .append("\"" + node.getLongitude() + "\"^^xsd:string .\n");
-
-                        if (n.containsKey("city")) {
-                            fw.append(adr_URI)
-                                    .append(" loc:isComposedOf <").append(n.getString("city")).append("> .\n");
-                        }
-                        break;
-                    }
-                    case Way: {
-                        //Way way = (Way) entity;
-                        break;
-                    }
-                    case Relation: {
-                        //Relation rel = (Relation) entity;
-                    }
-                }
-                fw.close();
+                //writing data from stream to file
+                fw.flush();
             } catch (IOException ex) {
-                System.out.println(ex.getLocalizedMessage());
-            } finally {
-
+                ex.getLocalizedMessage();
             }
         }
     }
 
     @Override
     public void complete() {
+        for (Map.Entry<String, FileWriter> entry : files.entrySet()) {
+            try {
+                entry.getValue().close();
+            } catch (IOException ex) {
+                System.out.println(entry.getKey());
+                Logger.getLogger(RDFWriter.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
     }
 
     @Override
     public void close() {
     }
 
-    private File solveFile(String dataset) throws IOException {
+    private FileWriter solveFile(String dataset) throws IOException {
         StringBuilder file_name = new StringBuilder();
         if (dataset == null) {
             file_name.append(directory.getName());
@@ -215,29 +228,32 @@ public class RDFWriter implements Sink {
             String[] dir_file = dataset.toLowerCase().split("/");
             file_name.append(dir_file[dir_file.length - 1]);
         }
-        file_name.append(EXT_TURTLE);
 
         if (files.containsKey(dataset)) {
             return files.get(dataset);
         } else {
-
+            file_name.append(EXT_TURTLE);
+            
             File file = new File(directory, file_name.toString());
+            FileWriter fw;
             if (!file.exists()) {
                 file.createNewFile();
-                files.put(dataset, file);
-
-                FileWriter fw = new FileWriter(file);
+                fw = new FileWriter(file, true);
                 header(fw);
-                fw.close();
+                fw.flush();
+
+                files.put(dataset, fw);
+            } else {
+                fw = new FileWriter(file, true);
             }
             File file_graph = new File(file.getAbsolutePath() + EXT_GRAPH);
             if (!file_graph.exists()) {
                 file_graph.createNewFile();
-                FileWriter fw = new FileWriter(file_graph);
-                fw.append(GRAPH_BASE + dataset.toLowerCase() + "/");
-                fw.close();
+                FileWriter fw_graph = new FileWriter(file_graph);
+                fw_graph.append(GRAPH_BASE + dataset.toLowerCase() + "/");
+                fw_graph.close();
             }
-            return file;
+            return fw;
         }
     }
 
