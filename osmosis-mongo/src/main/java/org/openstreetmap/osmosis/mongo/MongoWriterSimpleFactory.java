@@ -16,7 +16,7 @@ public class MongoWriterSimpleFactory extends TaskManagerFactory {
     protected TaskManager createTaskManagerImpl(TaskConfiguration taskConfig) {
         Sink sink = null;
         try {
-            MongoClient client = new MongoClient("localhost");
+            MongoClient client = new MongoClient("172.17.0.1");
             sink = new MongoWriterSimple(client);
         } catch (Exception e) {
             System.out.println(taskConfig.getDefaultArg());

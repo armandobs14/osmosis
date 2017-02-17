@@ -62,7 +62,11 @@ public class MongoWriterSimple implements Sink {
                 String v = entry.getValue();
                 switch (v) {
                     case "street":
+                    case "neighborhood":
                     case "suburb":
+                    case "village":
+                    case "hamlet":
+                    case "town":
                     case "city":
                     case "state":
                     case "country":
