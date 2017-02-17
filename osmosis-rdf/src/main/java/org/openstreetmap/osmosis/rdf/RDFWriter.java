@@ -92,8 +92,6 @@ public class RDFWriter implements Sink {
 
     @Override
     public void process(EntityContainer entityContainer) {
-        System.out.println(++actual + " de " + total_points);
-        
         Entity entity = entityContainer.getEntity();
 
         TagCollection tagCollection = (TagCollection) entity.getTags();
@@ -124,6 +122,7 @@ public class RDFWriter implements Sink {
             }
         }
         if (!keys_values.isEmpty()) {
+            System.out.println(++actual + " de " + total_points);
 
             Document n = getNode(entity.getId());
             try {
