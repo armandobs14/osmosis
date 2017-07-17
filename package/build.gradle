@@ -20,6 +20,7 @@ dependencies {
     runtime project(':osmosis-tagtransform')
     runtime project(':osmosis-xml')
     runtime project(':osmosis-mongo')
+    runtime project(':osmosis-rdf')
     runtime group: 'org.codehaus.plexus', name: 'plexus-classworlds', version: dependencyVersionClassworlds
 }
 
